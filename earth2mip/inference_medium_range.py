@@ -112,15 +112,17 @@ def run_forecast(
     initial_times,
     device,
     data_source: initial_conditions.base.DataSource,
+    validation_data_source: initial_conditions.base.DataSource,
     mean,
     f: IO[str],
+    output_directory: str
 ):
     mean = mean.squeeze()
     assert mean.ndim == 3  # noqa
 
     nlat = len(model.grid.lat)
     channels = [
-        data_source.channel_names.index(name) for name in model.out_channel_names
+        validation_data_source.channel_names.index(name) for name in model.out_channel_names
     ]
     mean = mean[channels, :nlat]
     mean = torch.from_numpy(mean).to(device)
@@ -138,6 +140,7 @@ def run_forecast(
         x = initial_conditions.get_initial_condition_for_model(
             time_loop=model, data_source=data_source, time=initial_time
         )
+        # np.save(os.path.join(output_directory, "initial_conditions.npy"), x.cpu().numpy())
         logger.debug("Initial Condition Loaded.")
         i = -1
         for valid_time, data, _ in model(x=x, time=initial_time):
@@ -149,7 +152,7 @@ def run_forecast(
             lead_time = valid_time - initial_time
             logger.debug(f"{valid_time}")
             verification_torch = initial_conditions.get_data_from_source(
-                data_source=data_source,
+                data_source=validation_data_source,
                 time=valid_time,
                 channel_names=model.out_channel_names,
                 grid=model.grid,
@@ -256,6 +259,7 @@ def save_scores(
     n: int,
     initial_times: List[datetime.datetime],
     data_source: initial_conditions.base.DataSource,
+    validation_data_source: initial_conditions.base.DataSource,
     time_mean: np.ndarray,
     output_directory: str,
     rank: int = 0,
@@ -296,8 +300,10 @@ def save_scores(
             device=device,
             initial_times=local_initial_times,
             data_source=data_source,
+            validation_data_source=validation_data_source,
             mean=time_mean,
             f=f,
+            output_directory=output_directory
         )
 
 
